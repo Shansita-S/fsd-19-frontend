@@ -1,4 +1,4 @@
-# Meeting Scheduling Management System - Frontend
+## Schedulify – Smart Meeting Organizer  - Frontend
 
 ## 📋 Project Overview
 A modern, responsive frontend application for the Meeting Scheduling Management System. Built with React, this application provides role-based interfaces for organizers and participants to manage and view meetings.
