@@ -68,7 +68,18 @@ export const meetingService = {
   getMeeting: (id) => api.get(`/meetings/${id}`),
   createMeeting: (data) => api.post('/meetings', data),
   updateMeeting: (id, data) => api.put(`/meetings/${id}`, data),
-  deleteMeeting: (id) => api.delete(`/meetings/${id}`)
+  deleteMeeting: (id) => api.delete(`/meetings/${id}`),
+  findBestSlot: (data) => api.post('/meetings/find-best-slot', data),
+  addAgenda: (id, agendaItems) => api.post(`/meetings/${id}/agenda`, { agendaItems }),
+  addNote: (id, content) => api.post(`/meetings/${id}/notes`, { content })
+};
+
+// Notification services
+export const notificationService = {
+  getAll: () => api.get('/notifications'),
+  checkReminders: () => api.get('/notifications/check-reminders'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  delete: (id) => api.delete(`/notifications/${id}`)
 };
 
 // User services

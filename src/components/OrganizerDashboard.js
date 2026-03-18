@@ -6,9 +6,13 @@ const OrganizerDashboard = () => {
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [editingMeeting, setEditingMeeting] = useState(null);
   const [error, setError] = useState('');
   const [conflictError, setConflictError] = useState(null);
+  const [newNote, setNewNote] = useState('');
+  const [newAgendaItem, setNewAgendaItem] = useState({ title: '', description: '', duration: 15 });
   
   const [formData, setFormData] = useState({
     title: '',
@@ -126,6 +130,55 @@ const OrganizerDashboard = () => {
     }
   };
 
+  const openDetailsModal = (meeting) => {
+    setSelectedMeeting(meeting);
+    setShowDetailsModal(true);
+    setNewNote('');
+    setNewAgendaItem({ title: '', description: '', duration: 15 });
+  };
+
+  const handleAddAgenda = async () => {
+    if (!newAgendaItem.title.trim()) {
+      alert('Please enter agenda item title');
+      return;
+    }
+
+    try {
+      await meetingService.addAgenda(selectedMeeting._id, [newAgendaItem]);
+      alert('Agenda added successfully!');
+      setNewAgendaItem({ title: '', description: '', duration: 15 });
+      fetchMeetings();
+      
+      // Refresh the selected meeting
+      const response = await meetingService.getAllMeetings();
+      const updated = response.data.meetings.find(m => m._id === selectedMeeting._id);
+      if (updated) setSelectedMeeting(updated);
+    } catch (err) {
+      alert('Failed to add agenda: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim()) {
+      alert('Please enter a note');
+      return;
+    }
+
+    try {
+      await meetingService.addNote(selectedMeeting._id, newNote);
+      alert('Note added successfully!');
+      setNewNote('');
+      fetchMeetings();
+      
+      // Refresh the selected meeting
+      const response = await meetingService.getAllMeetings();
+      const updated = response.data.meetings.find(m => m._id === selectedMeeting._id);
+      if (updated) setSelectedMeeting(updated);
+    } catch (err) {
+      alert('Failed to add note: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('en-US', {
       dateStyle: 'medium',
@@ -135,7 +188,7 @@ const OrganizerDashboard = () => {
 
   if (loading) {
     return <div className="loading">Loading meetings...</div>;
-  }
+  };
 
   return (
     <div className="container">
@@ -183,6 +236,12 @@ const OrganizerDashboard = () => {
                 </div>
 
                 <div className="card-actions">
+                  <button 
+                    onClick={() => openDetailsModal(meeting)} 
+                    className="btn btn-info"
+                  >
+                    📋 Details
+                  </button>
                   <button 
                     onClick={() => openEditModal(meeting)} 
                     className="btn btn-primary"
@@ -309,6 +368,133 @@ const OrganizerDashboard = () => {
             </div>
           </div>
         )}
+
+        {showDetailsModal && selectedMeeting && (
+          <div className="modal-overlay" onClick={() => setShowDetailsModal(false)}>
+            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>📋 Meeting Details: {selectedMeeting.title}</h3>
+                <button className="close-button" onClick={() => setShowDetailsModal(false)}>
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <div className="meeting-details-section">
+                  <h4>⏰ Time</h4>
+                  <p>{formatDateTime(selectedMeeting.startTime)} - {formatDateTime(selectedMeeting.endTime)}</p>
+                </div>
+
+                {selectedMeeting.description && (
+                  <div className="meeting-details-section">
+                    <h4>📝 Description</h4>
+                    <p>{selectedMeeting.description}</p>
+                  </div>
+                )}
+
+                <div className="meeting-details-section">
+                  <h4>👥 Participants ({selectedMeeting.participants?.length || 0})</h4>
+                  <div className="participants-grid">
+                    {selectedMeeting.participants && selectedMeeting.participants.length > 0 ? (
+                      selectedMeeting.participants.map((participant) => (
+                        <span key={participant.user._id} className="participant-badge">
+                          {participant.user.name}
+                        </span>
+                      ))
+                    ) : (
+                      <p>No participants</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="meeting-details-section">
+                  <h4>📋 Agenda</h4>
+                  {selectedMeeting.agenda && selectedMeeting.agenda.length > 0 ? (
+                    <ul className="agenda-list">
+                      {selectedMeeting.agenda.map((item, index) => (
+                        <li key={index} className="agenda-item">
+                          <div className="agenda-number">{index + 1}</div>
+                          <div className="agenda-content">
+                            <strong>{item.title}</strong>
+                            {item.description && <p>{item.description}</p>}
+                            {item.duration && <span className="agenda-duration">{item.duration} min</span>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="empty-message">No agenda items yet</p>
+                  )}
+
+                  <div className="add-agenda-form">
+                    <h5>➕ Add Agenda Item</h5>
+                    <input
+                      type="text"
+                      placeholder="Agenda item title *"
+                      value={newAgendaItem.title}
+                      onChange={(e) => setNewAgendaItem({ ...newAgendaItem, title: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Description (optional)"
+                      value={newAgendaItem.description}
+                      onChange={(e) => setNewAgendaItem({ ...newAgendaItem, description: e.target.value })}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Duration (minutes)"
+                      value={newAgendaItem.duration}
+                      onChange={(e) => setNewAgendaItem({ ...newAgendaItem, duration: parseInt(e.target.value) || 0 })}
+                      min="1"
+                    />
+                    <button onClick={handleAddAgenda} className="btn btn-primary">
+                      Add Agenda Item
+                    </button>
+                  </div>
+                </div>
+
+                <div className="meeting-details-section">
+                  <h4>📝 Notes</h4>
+                  {selectedMeeting.notes && selectedMeeting.notes.length > 0 ? (
+                    <ul className="notes-list">
+                      {selectedMeeting.notes.map((note, index) => (
+                        <li key={index} className="note-item">
+                          <div className="note-header">
+                            <strong>{note.author?.name || 'Unknown'}</strong>
+                            <span className="note-time">{new Date(note.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p>{note.content}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="empty-message">No notes yet</p>
+                  )}
+
+                  <div className="add-note-form">
+                    <h5>➕ Add Note</h5>
+                    <textarea
+                      placeholder="Type your note here..."
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      rows="4"
+                    />
+                    <button onClick={handleAddNote} className="btn btn-primary">
+                      Add Note
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button onClick={() => setShowDetailsModal(false)} className="btn btn-secondary">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

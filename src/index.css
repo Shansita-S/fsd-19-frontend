@@ -443,3 +443,191 @@ code {
     width: 100%;
   }
 }
+
+/* Meeting Details Modal */
+.modal-large {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.meeting-details-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.meeting-details-section:last-child {
+  border-bottom: none;
+}
+
+.meeting-details-section h4 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.meeting-details-section h5 {
+  margin: 20px 0 10px 0;
+  color: #34495e;
+  font-size: 1rem;
+}
+
+.empty-message {
+  color: #999;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+/* Agenda Items */
+.agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+  list-style: none;
+  padding: 0;
+}
+
+.agenda-item {
+  display: flex;
+  gap: 15px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+}
+
+.agenda-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.agenda-content {
+  flex: 1;
+}
+
+.agenda-content strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.agenda-content p {
+  margin: 5px 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.agenda-duration {
+  display: inline-block;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* Add Agenda/Note Forms */
+.add-agenda-form,
+.add-note-form {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.add-agenda-form input,
+.add-agenda-form textarea,
+.add-note-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.add-agenda-form textarea,
+.add-note-form textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* Notes */
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+  list-style: none;
+  padding: 0;
+}
+
+.note-item {
+  background: #fff9e6;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.note-header strong {
+  color: #2c3e50;
+}
+
+.note-time {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.note-item p {
+  color: #2c3e50;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* Button Info Style for Details */
+.btn-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #138496;
+}
+
+/* Participant badges in details */
+.meeting-details-section .participant-badge {
+  display: inline-block;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 6px 12px;
+  margin: 4px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+}
+
+.participants-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
