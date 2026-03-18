@@ -1,5 +1,6 @@
 import React from 'react';
 import { authService } from '../api';
+import NotificationPanel from './NotificationPanel';
 
 const Navbar = ({ user, onLogout }) => {
   const handleLogout = () => {
@@ -14,6 +15,7 @@ const Navbar = ({ user, onLogout }) => {
       <div className="navbar-content">
         <h1>📅 Meeting Scheduler</h1>
         <div className="navbar-actions">
+          <NotificationPanel user={user} />
           <div className="navbar-user">
             <span className="navbar-name">{user.name}</span>
             <span className="navbar-role">{user.role}</span>
