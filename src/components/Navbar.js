@@ -13,7 +13,7 @@ const Navbar = ({ user, onLogout }) => {
   return (
     <nav className="navbar">
       <div className="navbar-content">
-        <h1>📅 Meeting Scheduler</h1>
+        <h1>Schedulify: Smart Meeting Organizer</h1>
         <div className="navbar-actions">
           <NotificationPanel user={user} />
           <div className="navbar-user">

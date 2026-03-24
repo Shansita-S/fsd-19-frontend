@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { meetingService, userService } from '../api';
 
 const OrganizerDashboard = () => {
@@ -11,8 +11,16 @@ const OrganizerDashboard = () => {
   const [editingMeeting, setEditingMeeting] = useState(null);
   const [error, setError] = useState('');
   const [conflictError, setConflictError] = useState(null);
+  const [findingBestSlot, setFindingBestSlot] = useState(false);
+  const [slotSuggestions, setSlotSuggestions] = useState([]);
+  const [selectedSlotKey, setSelectedSlotKey] = useState('');
+  const [slotNotice, setSlotNotice] = useState('');
+  const [conflictGuideMessage, setConflictGuideMessage] = useState('');
+  const [slotSearchDays, setSlotSearchDays] = useState(7);
+  const [slotDuration, setSlotDuration] = useState(60);
   const [newNote, setNewNote] = useState('');
   const [newAgendaItem, setNewAgendaItem] = useState({ title: '', description: '', duration: 15 });
+  const autoSlotPanelRef = useRef(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -63,6 +71,16 @@ const OrganizerDashboard = () => {
     }));
   };
 
+  const getParticipantId = (participant) => participant?.user?._id || participant?._id;
+  const getParticipantName = (participant) => participant?.user?.name || participant?.name || 'Unknown';
+  const toLocalDateTimeInput = (dateLike) => {
+    const date = new Date(dateLike);
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+  const getSlotKey = (slot) => `${slot.startTime}-${slot.endTime}`;
+  const normalizeSlotDuration = (value) => Math.min(480, Math.max(15, parseInt(value, 10) || 15));
+
   const openCreateModal = () => {
     setEditingMeeting(null);
     setFormData({
@@ -74,6 +92,12 @@ const OrganizerDashboard = () => {
     });
     setError('');
     setConflictError(null);
+    setSlotSuggestions([]);
+    setSelectedSlotKey('');
+    setSlotNotice('');
+    setConflictGuideMessage('');
+    setSlotSearchDays(7);
+    setSlotDuration(60);
     setShowModal(true);
   };
 
@@ -82,19 +106,83 @@ const OrganizerDashboard = () => {
     setFormData({
       title: meeting.title,
       description: meeting.description || '',
-      startTime: new Date(meeting.startTime).toISOString().slice(0, 16),
-      endTime: new Date(meeting.endTime).toISOString().slice(0, 16),
-      participants: meeting.participants.map(p => p._id)
+      startTime: toLocalDateTimeInput(meeting.startTime),
+      endTime: toLocalDateTimeInput(meeting.endTime),
+      participants: (meeting.participants || []).map(getParticipantId).filter(Boolean)
     });
     setError('');
     setConflictError(null);
+    setSlotSuggestions([]);
+    setSelectedSlotKey('');
+    setSlotNotice('');
+    setConflictGuideMessage('');
+
+    const computedDuration = Math.max(
+      15,
+      Math.round((new Date(meeting.endTime).getTime() - new Date(meeting.startTime).getTime()) / 60000)
+    );
+    setSlotDuration(computedDuration);
     setShowModal(true);
+  };
+
+  const applySuggestedSlot = (slot) => {
+    const slotKey = getSlotKey(slot);
+    setFormData(prev => ({
+      ...prev,
+      startTime: toLocalDateTimeInput(slot.startTime),
+      endTime: toLocalDateTimeInput(slot.endTime)
+    }));
+    setSelectedSlotKey(slotKey);
+    setConflictError(null);
+    setError('');
+    setSlotNotice('Suggested slot applied. Click Create/Update Meeting to save it.');
+  };
+
+  const handleFindBestSlot = async () => {
+    setError('');
+    setSlotNotice('');
+
+    if (formData.participants.length === 0) {
+      setError('Select at least one participant to auto-find a slot.');
+      return;
+    }
+
+    const duration = normalizeSlotDuration(slotDuration);
+    setSlotDuration(duration);
+    if (!duration || duration < 15) {
+      setError('Duration must be at least 15 minutes.');
+      return;
+    }
+
+    setFindingBestSlot(true);
+    try {
+      const response = await meetingService.findBestSlot({
+        participants: formData.participants,
+        duration,
+        daysToSearch: slotSearchDays
+      });
+
+      const suggestions = response.data?.suggestedSlots || [];
+      setSlotSuggestions(suggestions);
+      setSelectedSlotKey('');
+
+      if (suggestions.length > 0) {
+        applySuggestedSlot(suggestions[0]);
+      }
+    } catch (err) {
+      setSlotSuggestions([]);
+      setError(err.response?.data?.message || 'Failed to auto-find a best slot');
+    } finally {
+      setFindingBestSlot(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setConflictError(null);
+    setSlotNotice('');
+    setConflictGuideMessage('');
 
     try {
       if (editingMeeting) {
@@ -106,7 +194,26 @@ const OrganizerDashboard = () => {
       fetchMeetings();
     } catch (err) {
       if (err.response?.status === 409) {
-        setConflictError(err.response.data);
+        const conflictData = err.response.data;
+        setConflictError(conflictData);
+
+        const conflictSuggestions = conflictData?.suggestedSlots || [];
+        setSlotSuggestions(conflictSuggestions);
+        setSelectedSlotKey('');
+
+        if (conflictSuggestions.length > 0) {
+          setConflictGuideMessage('Conflict detected. We found suggested slots below in Auto Best Slot. Pick one and save.');
+        } else {
+          setConflictGuideMessage('Conflict detected. Use Auto Best Slot to find a new available time, then save again.');
+        }
+
+        setTimeout(() => {
+          autoSlotPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 0);
+
+        if (conflictSuggestions.length > 0) {
+          applySuggestedSlot(conflictSuggestions[0]);
+        }
       } else {
         setError(
           err.response?.data?.message || 
@@ -226,8 +333,8 @@ const OrganizerDashboard = () => {
                       <h4>Participants ({meeting.participants.length})</h4>
                       <div className="participants-list">
                         {meeting.participants.map(participant => (
-                          <span key={participant._id} className="participant-badge">
-                            {participant.name}
+                          <span key={getParticipantId(participant)} className="participant-badge">
+                            {getParticipantName(participant)}
                           </span>
                         ))}
                       </div>
@@ -277,6 +384,11 @@ const OrganizerDashboard = () => {
                   <div className="conflict-warning">
                     <h4>⚠️ Scheduling Conflict Detected</h4>
                     <p>{conflictError.message}</p>
+                    {conflictGuideMessage && (
+                      <p style={{ marginTop: '0.5rem', fontWeight: 600 }}>
+                        {conflictGuideMessage}
+                      </p>
+                    )}
                     {conflictError.conflicts?.map((conflict, idx) => (
                       <div key={idx} className="conflict-details">
                         <strong>{conflict.participant.name}</strong> has conflicts with:
@@ -287,6 +399,25 @@ const OrganizerDashboard = () => {
                         ))}
                       </div>
                     ))}
+                    {slotSuggestions.length > 0 && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <strong>Suggested slots:</strong>
+                        <div className="checkbox-list" style={{ marginTop: '0.5rem' }}>
+                          {slotSuggestions.map((slot, idx) => (
+                            <button
+                              key={`conflict-slot-${slot.startTime}-${idx}`}
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => applySuggestedSlot(slot)}
+                              style={{ width: '100%', textAlign: 'left', marginBottom: '0.5rem' }}
+                            >
+                              Use Option {idx + 1}: {formatDateTime(slot.startTime)} - {formatDateTime(slot.endTime)}
+                              {slot.score ? ` (score: ${slot.score})` : ''}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -333,6 +464,61 @@ const OrganizerDashboard = () => {
                       onChange={handleChange}
                       required
                     />
+                  </div>
+
+                  <div className="form-group auto-slot-panel" ref={autoSlotPanelRef}>
+                    <label>Auto Best Slot</label>
+                    <div className="auto-slot-controls">
+                      <div>
+                        <label style={{ fontSize: '0.85rem' }}>Duration (min)</label>
+                        <input
+                          type="number"
+                          min="15"
+                          max="480"
+                          value={slotDuration}
+                          onChange={(e) => setSlotDuration(normalizeSlotDuration(e.target.value))}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.85rem' }}>Search Days</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={slotSearchDays}
+                          onChange={(e) => setSlotSearchDays(parseInt(e.target.value, 10) || 7)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-info"
+                        onClick={handleFindBestSlot}
+                        disabled={findingBestSlot}
+                      >
+                        {findingBestSlot ? 'Finding...' : 'Auto Find Slot'}
+                      </button>
+                    </div>
+
+                    {slotSuggestions.length > 0 && (
+                      <div className="checkbox-list" style={{ marginTop: '0.75rem' }}>
+                        {slotSuggestions.map((slot, idx) => (
+                          <button
+                            key={`${slot.startTime}-${idx}`}
+                            type="button"
+                            className={`btn btn-secondary auto-slot-option ${selectedSlotKey === getSlotKey(slot) ? 'selected' : ''}`}
+                            onClick={() => applySuggestedSlot(slot)}
+                            style={{ width: '100%', textAlign: 'left', marginBottom: '0.5rem' }}
+                          >
+                            Option {idx + 1}: {formatDateTime(slot.startTime)} - {formatDateTime(slot.endTime)}
+                            {slot.score ? ` (score: ${slot.score})` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {conflictGuideMessage && <div className="slot-notice">{conflictGuideMessage}</div>}
+                    <small className="auto-slot-hint">Auto Find uses the duration above, independent of the manual start/end fields.</small>
+                    {slotNotice && <div className="slot-notice">{slotNotice}</div>}
                   </div>
 
                   <div className="form-group">

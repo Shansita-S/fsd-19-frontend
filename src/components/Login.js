@@ -39,7 +39,9 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login</h2>
+        <p className="auth-kicker">Welcome to Schedulify</p>
+        <h2>Sign in to your workspace</h2>
+        <p className="auth-subtitle">Plan faster, avoid clashes, and keep every meeting aligned.</p>
         
         {error && <div className="error-message">{error}</div>}
         
