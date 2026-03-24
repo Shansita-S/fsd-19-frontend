@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { notificationService } from '../api';
 import './NotificationPanel.css';
 
@@ -7,21 +7,7 @@ const NotificationPanel = ({ user }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadNotifications();
-      checkReminders();
-
-      // Check for reminders every 5 minutes
-      const interval = setInterval(() => {
-        checkReminders();
-      }, 5 * 60 * 1000); // 5 minutes
-
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const response = await notificationService.getAll();
       setNotifications(response.data.notifications || []);
@@ -29,9 +15,9 @@ const NotificationPanel = ({ user }) => {
     } catch (error) {
       console.error('Failed to load notifications:', error);
     }
-  };
+  }, []);
 
-  const checkReminders = async () => {
+  const checkReminders = useCallback(async () => {
     try {
       const response = await notificationService.checkReminders();
       const newNotifications = response.data.notifications || [];
@@ -66,7 +52,23 @@ const NotificationPanel = ({ user }) => {
     } catch (error) {
       console.error('Failed to check reminders:', error);
     }
-  };
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    loadNotifications();
+    checkReminders();
+
+    // Check for reminders every 5 minutes
+    const interval = setInterval(() => {
+      checkReminders();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user, loadNotifications, checkReminders]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {
