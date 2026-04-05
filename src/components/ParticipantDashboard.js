@@ -5,6 +5,7 @@ const ParticipantDashboard = () => {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 
   useEffect(() => {
     fetchMeetings();
@@ -41,6 +42,76 @@ const ParticipantDashboard = () => {
       return { text: 'Completed', color: '#95a5a6' };
     }
   };
+
+  const isJoinTime = (meeting) => {
+    const now = new Date();
+    const start = new Date(meeting.startTime);
+    const end = new Date(meeting.endTime);
+    return now >= start && now <= end;
+  };
+
+  const getCurrentParticipantEntry = (meeting) => {
+    const currentUserId = currentUser?._id || currentUser?.id;
+
+    if (!currentUserId || !Array.isArray(meeting?.participants)) {
+      return null;
+    }
+
+    return meeting.participants.find((participant) => {
+      const participantId = participant?.user?._id || participant?.user;
+      return String(participantId) === String(currentUserId);
+    }) || null;
+  };
+
+  const canCurrentUserJoin = (meeting) => {
+    const participantEntry = getCurrentParticipantEntry(meeting);
+    if (!participantEntry) return false;
+    if (participantEntry.status === 'declined') return false;
+    return isJoinTime(meeting);
+  };
+
+  const buildSimpleJoinUrl = (meeting) => {
+    const provider = meeting?.videoConference?.provider;
+    const roomName = meeting?.videoConference?.roomName;
+    const rawUrl = meeting?.videoConference?.joinUrl;
+
+    if (!rawUrl) return '';
+    if (provider === 'custom') return rawUrl;
+
+    if (roomName) {
+      return `https://talky.io/${roomName}`;
+    }
+
+    if (rawUrl.includes('meet.jit.si/')) {
+      const roomPart = rawUrl.split('meet.jit.si/')[1]?.split('#')[0]?.split('?')[0];
+      if (roomPart) {
+        return `https://talky.io/${roomPart}`;
+      }
+    }
+
+    return rawUrl;
+  };
+
+  const handleJoinMeeting = (meeting) => {
+    if (!meeting?.videoConference?.joinUrl) return;
+    if (!canCurrentUserJoin(meeting)) {
+      alert('Join is enabled only for invited participants during the scheduled meeting time.');
+      return;
+    }
+    window.open(buildSimpleJoinUrl(meeting), '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenRecording = (meeting) => {
+    const url = meeting?.recording?.recordingUrl;
+    if (!url) return;
+
+    const popup = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = url;
+    }
+  };
+
+  const getParticipantUser = (participant) => participant?.user || participant;
 
   if (loading) {
     return <div className="loading">Loading meetings...</div>;
@@ -91,13 +162,44 @@ const ParticipantDashboard = () => {
                         <strong>Organizer:</strong> {meeting.organizer.name} ({meeting.organizer.email})
                       </div>
                     )}
+
+                    {meeting.videoConference?.joinUrl && (
+                      <div className="meeting-link-row">
+                        <button
+                          type="button"
+                          className="btn btn-info"
+                          onClick={() => handleJoinMeeting(meeting)}
+                          disabled={!canCurrentUserJoin(meeting)}
+                        >
+                          Join Meeting
+                        </button>
+                        {!canCurrentUserJoin(meeting) && (
+                          <small className="join-time-note">Enabled for invited participants during scheduled time</small>
+                        )}
+                      </div>
+                    )}
+
+                    {meeting.recording?.recordingUrl && (
+                      <div className="meeting-recording-row">
+                        <strong>Recording:</strong>{' '}
+                        <button
+                          type="button"
+                          className="btn btn-info recording-download-btn"
+                          onClick={() => handleOpenRecording(meeting)}
+                        >
+                          Open Recording
+                        </button>
+                      </div>
+                    )}
                     
                     {meeting.participants && meeting.participants.length > 1 && (
                       <div className="meeting-participants">
                         <h4>Other Participants ({meeting.participants.length - 1})</h4>
                         <div className="participants-list">
                           {meeting.participants
-                            .filter(p => p._id !== meeting.participants[0]._id)
+                            .map(getParticipantUser)
+                            .filter(Boolean)
+                            .filter(p => p._id !== meeting.participants[0]?.user?._id)
                             .map(participant => (
                               <span key={participant._id} className="participant-badge">
                                 {participant.name}

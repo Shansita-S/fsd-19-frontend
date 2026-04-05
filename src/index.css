@@ -339,6 +339,36 @@ code {
   margin-top: 1rem;
 }
 
+.meeting-link-row {
+  margin: 0.75rem 0;
+}
+
+.join-time-note {
+  display: block;
+  margin-top: 0.35rem;
+  color: #5c7180;
+}
+
+.meeting-recording-row {
+  margin-top: 0.75rem;
+  color: #234;
+}
+
+.meeting-recording-row a {
+  color: #0b62a4;
+  font-weight: 700;
+}
+
+.meeting-recording-row a:hover {
+  color: #084b7f;
+}
+
+.recording-download-btn {
+  margin-left: 0.6rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
 .meeting-participants h4 {
   font-size: 0.9rem;
   color: #7f8c8d;

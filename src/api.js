@@ -77,7 +77,8 @@ export const meetingService = {
   deleteMeeting: (id) => api.delete(`/meetings/${id}`),
   findBestSlot: (data) => api.post('/meetings/find-best-slot', data),
   addAgenda: (id, agendaItems) => api.post(`/meetings/${id}/agenda`, { agendaItems }),
-  addNote: (id, content) => api.post(`/meetings/${id}/notes`, { content })
+  addNote: (id, content) => api.post(`/meetings/${id}/notes`, { content }),
+  addRecording: (id, recordingUrl) => api.post(`/meetings/${id}/recording`, { recordingUrl })
 };
 
 // Notification services

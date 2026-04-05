@@ -19,6 +19,7 @@ const OrganizerDashboard = () => {
   const [slotSearchDays, setSlotSearchDays] = useState(7);
   const [slotDuration, setSlotDuration] = useState(60);
   const [newNote, setNewNote] = useState('');
+  const [recordingUrl, setRecordingUrl] = useState('');
   const [newAgendaItem, setNewAgendaItem] = useState({ title: '', description: '', duration: 15 });
   const autoSlotPanelRef = useRef(null);
   
@@ -241,7 +242,49 @@ const OrganizerDashboard = () => {
     setSelectedMeeting(meeting);
     setShowDetailsModal(true);
     setNewNote('');
+    setRecordingUrl(meeting?.recording?.recordingUrl || '');
     setNewAgendaItem({ title: '', description: '', duration: 15 });
+  };
+
+  const handleAddRecording = async () => {
+    const normalizedUrl = recordingUrl.trim();
+
+    if (!normalizedUrl) {
+      alert('Please enter recording URL');
+      return;
+    }
+
+    try {
+      new URL(normalizedUrl);
+    } catch (e) {
+      alert('Please enter a valid URL (http/https)');
+      return;
+    }
+
+    try {
+      await meetingService.addRecording(selectedMeeting._id, normalizedUrl);
+      alert('Recording saved and shared with participants');
+      fetchMeetings();
+
+      const response = await meetingService.getAllMeetings();
+      const updated = response.data.meetings.find(m => m._id === selectedMeeting._id);
+      if (updated) {
+        setSelectedMeeting(updated);
+        setRecordingUrl(updated?.recording?.recordingUrl || normalizedUrl);
+      }
+    } catch (err) {
+      alert('Failed to save recording: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleOpenRecording = (meeting) => {
+    const url = meeting?.recording?.recordingUrl;
+    if (!url) return;
+
+    const popup = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = url;
+    }
   };
 
   const handleAddAgenda = async () => {
@@ -293,6 +336,44 @@ const OrganizerDashboard = () => {
     });
   };
 
+  const isJoinTime = (meeting) => {
+    const now = new Date();
+    const start = new Date(meeting.startTime);
+    const end = new Date(meeting.endTime);
+    return now >= start && now <= end;
+  };
+
+  const buildSimpleJoinUrl = (meeting) => {
+    const provider = meeting?.videoConference?.provider;
+    const roomName = meeting?.videoConference?.roomName;
+    const rawUrl = meeting?.videoConference?.joinUrl;
+
+    if (!rawUrl) return '';
+    if (provider === 'custom') return rawUrl;
+
+    if (roomName) {
+      return `https://talky.io/${roomName}`;
+    }
+
+    if (rawUrl.includes('meet.jit.si/')) {
+      const roomPart = rawUrl.split('meet.jit.si/')[1]?.split('#')[0]?.split('?')[0];
+      if (roomPart) {
+        return `https://talky.io/${roomPart}`;
+      }
+    }
+
+    return rawUrl;
+  };
+
+  const handleJoinMeeting = (meeting) => {
+    if (!meeting?.videoConference?.joinUrl) return;
+    if (!isJoinTime(meeting)) {
+      alert('Join is available only during the scheduled meeting time.');
+      return;
+    }
+    window.open(buildSimpleJoinUrl(meeting), '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return <div className="loading">Loading meetings...</div>;
   };
@@ -327,6 +408,35 @@ const OrganizerDashboard = () => {
                 
                 <div className="card-body">
                   {meeting.description && <p>{meeting.description}</p>}
+
+                  {meeting.videoConference?.joinUrl && (
+                    <div className="meeting-link-row">
+                      <button
+                        type="button"
+                        className="btn btn-info"
+                        onClick={() => handleJoinMeeting(meeting)}
+                        disabled={!isJoinTime(meeting)}
+                      >
+                        Join Meeting Room
+                      </button>
+                      {!isJoinTime(meeting) && (
+                        <small className="join-time-note">Available at scheduled start time</small>
+                      )}
+                    </div>
+                  )}
+
+                  {meeting.recording?.recordingUrl && (
+                    <div className="meeting-recording-row">
+                      <strong>Recording:</strong>{' '}
+                      <button
+                        type="button"
+                        className="btn btn-info recording-download-btn"
+                        onClick={() => handleOpenRecording(meeting)}
+                      >
+                        Open Recording
+                      </button>
+                    </div>
+                  )}
                   
                   {meeting.participants && meeting.participants.length > 0 && (
                     <div className="meeting-participants">
@@ -579,6 +689,25 @@ const OrganizerDashboard = () => {
                 )}
 
                 <div className="meeting-details-section">
+                  <h4>🎥 Virtual Room</h4>
+                  {selectedMeeting.videoConference?.joinUrl ? (
+                    <button
+                      type="button"
+                      className="btn btn-info"
+                      onClick={() => handleJoinMeeting(selectedMeeting)}
+                      disabled={!isJoinTime(selectedMeeting)}
+                    >
+                      Open Meeting Room
+                    </button>
+                  ) : (
+                    <p>No meeting link available</p>
+                  )}
+                  {selectedMeeting.videoConference?.joinUrl && !isJoinTime(selectedMeeting) && (
+                    <p className="empty-message">Join is enabled during the scheduled meeting time window.</p>
+                  )}
+                </div>
+
+                <div className="meeting-details-section">
                   <h4>👥 Participants ({selectedMeeting.participants?.length || 0})</h4>
                   <div className="participants-grid">
                     {selectedMeeting.participants && selectedMeeting.participants.length > 0 ? (
@@ -667,6 +796,41 @@ const OrganizerDashboard = () => {
                     />
                     <button onClick={handleAddNote} className="btn btn-primary">
                       Add Note
+                    </button>
+                  </div>
+                </div>
+
+                <div className="meeting-details-section">
+                  <h4>🎬 Recording</h4>
+                  {selectedMeeting.recording?.recordingUrl ? (
+                    <>
+                      <p>
+                        Recording available:{' '}
+                        {selectedMeeting.recording.recordingUrl}
+                      </p>
+                      <p className="empty-message">Participants automatically get this recording link when you save it.</p>
+                      <button
+                        type="button"
+                        className="btn btn-info recording-download-btn"
+                        onClick={() => handleOpenRecording(selectedMeeting)}
+                      >
+                        Open Recording
+                      </button>
+                    </>
+                  ) : (
+                    <p className="empty-message">Add recording URL here to share with participants.</p>
+                  )}
+
+                  <div className="add-note-form" style={{ marginTop: '1rem' }}>
+                    <h5>Add Recording URL</h5>
+                    <input
+                      type="url"
+                      placeholder="https://your-recording-link"
+                      value={recordingUrl}
+                      onChange={(e) => setRecordingUrl(e.target.value)}
+                    />
+                    <button type="button" onClick={handleAddRecording} className="btn btn-success">
+                      Save and Share Recording
                     </button>
                   </div>
                 </div>
