@@ -74,6 +74,16 @@ const OrganizerDashboard = () => {
 
   const getParticipantId = (participant) => participant?.user?._id || participant?._id;
   const getParticipantName = (participant) => participant?.user?.name || participant?.name || 'Unknown';
+  const toUtcISOStringFromLocalInput = (value) => {
+    if (!value) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  };
+  const toMeetingRequestPayload = (payload) => ({
+    ...payload,
+    startTime: toUtcISOStringFromLocalInput(payload.startTime),
+    endTime: toUtcISOStringFromLocalInput(payload.endTime)
+  });
   const toLocalDateTimeInput = (dateLike) => {
     const date = new Date(dateLike);
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -184,12 +194,13 @@ const OrganizerDashboard = () => {
     setConflictError(null);
     setSlotNotice('');
     setConflictGuideMessage('');
+    const requestPayload = toMeetingRequestPayload(formData);
 
     try {
       if (editingMeeting) {
-        await meetingService.updateMeeting(editingMeeting._id, formData);
+        await meetingService.updateMeeting(editingMeeting._id, requestPayload);
       } else {
-        await meetingService.createMeeting(formData);
+        await meetingService.createMeeting(requestPayload);
       }
       setShowModal(false);
       fetchMeetings();
